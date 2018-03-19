@@ -9,6 +9,7 @@
 #Jupyter notebooks
 .ipynb_checkpoints/
 __pycache__/
+output.wav
 
 # User-specific files
 *.suo
