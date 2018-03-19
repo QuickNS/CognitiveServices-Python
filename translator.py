@@ -1,5 +1,6 @@
 import http.client, urllib.request, urllib.parse, urllib.error, base64, json
 from xml.etree import ElementTree
+import vlc
 
 class TranslatorService:
 
@@ -93,6 +94,36 @@ class TranslatorService:
         except Exception as e:
             print('Error: %s' % str(e))
             
+
+    def speak(self, text, language, options='MaxQuality|Female', format="audio/wav"):
+        
+        outputFile = 'output.wav'
+        # Define the request headers.
+        headers = {
+            'Ocp-Apim-Subscription-Key': self.key,
+        }
+
+        params = urllib.parse.urlencode({
+        # Request parameters
+        'text': text,
+        'language': language,
+        'options': options
+        })
+
+        try:
+            conn = http.client.HTTPSConnection('api.microsofttranslator.com')
+            conn.request("GET", "/V2/Http.svc//Speak?%s" % params, None, headers)
+            response = conn.getresponse()
+            with open(outputFile, 'wb') as f:
+                f.write(response.read())
+            conn.close()
+            p = vlc.MediaPlayer(outputFile)
+            p.play()
+            return outputFile
+
+        except Exception as e:
+            print('Error: %s' % str(e))
+
     def detect(self, textToDetect):
         # Define the request headers.
         headers = {
@@ -106,7 +137,7 @@ class TranslatorService:
 
         try:
             conn = http.client.HTTPSConnection('api.microsofttranslator.com')
-            conn.request("GET", "/V2/Http.svc//Detect?%s" % params, "{body}", headers)
+            conn.request("GET", "/V2/Http.svc//Detect?%s" % params, NotImplementedError, headers)
             response = conn.getresponse()
             data = response.read()
             # parse xml return values
@@ -116,6 +147,61 @@ class TranslatorService:
 
         except Exception as e:
             print('Error: %s' % str(e))
+
+    def detectArray(self, list_strings):
+        
+        # Define the request headers.
+        headers = {
+            'Ocp-Apim-Subscription-Key': self.key,
+            'Content-Type' : 'text/xml; charset=utf-8'
+        }
+
+        strings_xml = ''
+        for i in list_strings:
+            strings_xml = strings_xml + '<string xmlns=\"http://schemas.microsoft.com/2003/10/Serialization/Arrays\">{}</string>'.format(i)
+        
+        body = "<ArrayOfstring xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns=\"http://schemas.microsoft.com/2003/10/Serialization/Arrays\">"  + \
+                    strings_xml + \
+                "</ArrayOfstring>"
+              
+        try:
+            conn = http.client.HTTPSConnection('api.microsofttranslator.com')
+            conn.request("POST", "/V2/Http.svc/DetectArray", body.encode('utf8'), headers)
+            response = conn.getresponse()
+            data = response.read()
+            # parse xml return values
+            langs = ElementTree.fromstring(data.decode('utf-8'))
+            conn.close()
+            language_list = []
+            for child in langs.iter('{http://schemas.microsoft.com/2003/10/Serialization/Arrays}string'):
+                language_list.append(child.text)
+            return language_list    
+
+        except Exception as e:
+            print('Error: %s' % str(e))
+   
+
+    def getLanguagesForSpeak(self):
+        # Define the request headers.
+        headers = {
+            'Ocp-Apim-Subscription-Key': self.key,
+        }
+
+        try:
+            conn = http.client.HTTPSConnection('api.microsofttranslator.com')
+            conn.request("GET", "/V2/Http.svc//GetLanguagesForSpeak", None, headers)
+            response = conn.getresponse()
+            data = response.read()
+            response = ElementTree.fromstring(data.decode('utf-8'))
+            conn.close()
+           
+            language_list = []
+            for child in response.iter('{http://schemas.microsoft.com/2003/10/Serialization/Arrays}string'):
+                language_list.append(child.text)
+            return language_list    
+
+        except Exception as e:
+            print('Error: %s' % str(e))    
 
     def getLanguagesForTranslate(self):
         # Define the request headers.
